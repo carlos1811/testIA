@@ -27,7 +27,7 @@ Aplicación web de citas asistida por IA. El objetivo del MVP es que una persona
 - **Base de datos:** PostgreSQL.
 - **Autenticación:** JWT (access token) con roles de usuario.
 - **Frontend:** UI simple (HTML/CSS/JS) para prototipo.
-- **Despliegue inicial:** local.
+- **Despliegue inicial:** local con Docker Compose.
 
 Más detalle en [`docs/architecture.md`](docs/architecture.md).
 
@@ -43,22 +43,51 @@ backend/
     schemas/         # modelos Pydantic
     services/        # lógica de negocio
     main.py          # entrypoint FastAPI
+  Dockerfile         # imagen del backend
 frontend/
   index.html         # interfaz base del prototipo
 docs/
   architecture.md    # arquitectura, datos y roadmap
+docker-compose.yml   # levanta postgres + backend
 tests/               # pruebas (pendiente de completar)
 ```
 
-## Arranque rápido (local)
+## Cómo ejecutarlo (rápido con Docker)
+
+Sí: para facilitarte el arranque ya quedó agregado PostgreSQL con Docker Compose.
+
+1. Desde la raíz del proyecto (`/workspace/testIA`), levantar servicios:
+
+```bash
+docker compose up --build
+```
+
+Si haces cambios nuevos en el código y quieres asegurarte de levantar la última versión:
+
+```bash
+docker compose down
+docker compose up --build --remove-orphans
+```
+
+2. Verificar backend:
+
+- Healthcheck: <http://localhost:8000/health>
+- Docs Swagger: <http://localhost:8000/docs>
+
+Esto levanta:
+- `postgres` en `localhost:5432`
+- `backend` FastAPI en `localhost:8000`
+
+La configuración Docker del backend se toma desde `backend/.env.docker` para mantener separados los valores de contenedor frente a local.
+
+## Arranque local sin Docker (opcional)
 
 1. Crear entorno virtual.
 2. Instalar dependencias desde `backend/requirements.txt`.
 3. Exportar variables de entorno (ejemplo en `backend/.env.example`).
-4. Ejecutar servidor:
+4. Tener PostgreSQL corriendo localmente.
+5. Ejecutar servidor desde `backend/`:
 
 ```bash
 uvicorn app.main:app --reload
 ```
-
-Desde la carpeta `backend/`.
