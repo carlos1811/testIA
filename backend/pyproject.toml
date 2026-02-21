@@ -1,0 +1,22 @@
+[project]
+name = "citasia-backend"
+version = "0.1.0"
+description = "Backend FastAPI para citasIA"
+authors = [{ name = "citasIA team" }]
+requires-python = ">=3.12,<4.0"
+dependencies = [
+  "fastapi==0.111.0",
+  "uvicorn[standard]==0.30.1",
+  "sqlalchemy==2.0.31",
+  "psycopg2-binary==2.9.9",
+  "pydantic-settings==2.3.4",
+  "python-jose[cryptography]==3.3.0",
+  "passlib[bcrypt]==1.7.4"
+]
+
+[tool.poetry]
+package-mode = false
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
