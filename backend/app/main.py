@@ -1,7 +1,7 @@
 from fastapi import FastAPI
-
 from .api.routes import auth, chat, matches
 from .core.config import settings
+
 
 app = FastAPI(title=settings.app_name)
 

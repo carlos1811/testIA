@@ -1,5 +1,4 @@
 from fastapi import APIRouter
-
 from ...schemas.match import MatchItem
 
 router = APIRouter(prefix="/matches", tags=["matches"])

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-
 from ...schemas.auth import AuthResponse, LoginRequest, RegisterRequest
+
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

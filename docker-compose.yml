@@ -1,0 +1,39 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: citasia-postgres
+    environment:
+      POSTGRES_DB: citasia
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d citasia"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    container_name: citasia-backend
+    environment:
+      APP_NAME: citasIA API
+      ENVIRONMENT: development
+      DATABASE_URL: postgresql+psycopg2://postgres:postgres@postgres:5432/citasia
+      JWT_SECRET: change-me
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TOKEN_MINUTES: 60
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pg_data:
