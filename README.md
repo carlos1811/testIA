@@ -83,11 +83,11 @@ La configuración Docker del backend se toma desde `backend/.env.docker` para ma
 ## Arranque local sin Docker (opcional)
 
 1. Crear entorno virtual.
-2. Instalar dependencias desde `backend/requirements.txt`.
+2. Instalar dependencias con Poetry (`poetry install`).
 3. Exportar variables de entorno (ejemplo en `backend/.env.example`).
 4. Tener PostgreSQL corriendo localmente.
 5. Ejecutar servidor desde `backend/`:
 
 ```bash
-uvicorn app.main:app --reload
+poetry run uvicorn app.main:app --reload
 ```
