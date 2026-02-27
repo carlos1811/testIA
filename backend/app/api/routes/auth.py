@@ -9,6 +9,9 @@ from ...schemas.auth import AuthResponse, LoginRequest, RegisterRequest
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def _truncate_password(password: str, max_bytes: int =72) -> str:
+ b = password.encode("utf-8")[:max_bytes]
+ return b.decode("utf-8", "ignore")
 
 @router.post("/register", response_model=AuthResponse)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthResponse:
@@ -18,10 +21,13 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthRes
             raise HTTPException(status_code=400, detail="Email already registered")
         raise HTTPException(status_code=400, detail="Username already taken")
 
+    safe_password = _truncate_password(payload.password)
+    password_hash = pwd_context.hash(safe_password)
+
     user = User(
         email=payload.email,
         username=payload.username,
-        password_hash=pwd_context.hash(payload.password),
+        password_hash=pwd_context.hash(password_hash),
     )
 
     try:
