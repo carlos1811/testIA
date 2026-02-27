@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -23,8 +23,17 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthRes
         username=payload.username,
         password_hash=pwd_context.hash(payload.password),
     )
-    db.add(user)
-    db.commit()
+
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
 
     return AuthResponse(access_token=f"mock-token-for-{payload.email}")
 
