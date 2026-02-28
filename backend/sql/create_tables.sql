@@ -31,16 +31,31 @@ CREATE TABLE IF NOT EXISTS matches (
     CONSTRAINT fk_matches_user_b FOREIGN KEY (user_b_id) REFERENCES users(id)
 );
 
--- Tabla: psychological_profiles
 CREATE TABLE IF NOT EXISTS psychological_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL,
-    summary_text TEXT NOT NULL DEFAULT '',
-    writing_style_score DOUBLE PRECISION NOT NULL DEFAULT 0,
-    empathy_score DOUBLE PRECISION NOT NULL DEFAULT 0,
-    openness_score DOUBLE PRECISION NOT NULL DEFAULT 0,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    CONSTRAINT fk_profile_user FOREIGN KEY (user_id) REFERENCES users(id)
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    perfil_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    completeness_score FLOAT NOT NULL DEFAULT 0.0,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Índices útiles para consultas futuras
+CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON psychological_profiles(user_id);
+CREATE INDEX IF NOT EXISTS idx_profiles_jsonb ON psychological_profiles USING GIN (perfil_json);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(20) NOT NULL DEFAULT 'onboarding',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Trigger para actualizar `updated_at` en psychological_profiles al actualizar la fila
