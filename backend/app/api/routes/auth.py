@@ -9,9 +9,8 @@ from ...schemas.auth import AuthResponse, LoginRequest, RegisterRequest
 router = APIRouter(prefix="/auth", tags=["auth"])
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def _truncate_password(password: str, max_bytes: int = 72) -> str:
-    b = password.encode("utf-8")[:max_bytes]
-    return b.decode("utf-8", "ignore")
+def _truncate_password(password: str, max_bytes: int = 72) -> bytes:
+    return password.encode("utf-8")[:max_bytes]
 
 @router.post("/register", response_model=AuthResponse)
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthResponse:
