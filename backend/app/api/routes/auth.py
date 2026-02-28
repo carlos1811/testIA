@@ -40,7 +40,10 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthRes
             detail=str(exc),
         ) from exc
 
-    return AuthResponse(access_token=f"mock-token-for-{payload.email}")
+    return AuthResponse(
+        access_token=f"mock-token-for-{payload.email}",
+        user_id=str(user.id),
+    )
 
 
 @router.post("/login", response_model=AuthResponse)
@@ -60,4 +63,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
             detail="Invalid email or password",
         )
 
-    return AuthResponse(access_token=f"mock-token-for-{payload.email}")
+    return AuthResponse(
+        access_token=f"mock-token-for-{payload.email}",
+        user_id=str(user.id),
+    )

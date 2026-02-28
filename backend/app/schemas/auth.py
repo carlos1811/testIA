@@ -21,4 +21,5 @@ class LoginRequest(BaseModel):
 
 class AuthResponse(BaseModel):
     access_token: str
+    user_id: str
     token_type: str = "bearer"
