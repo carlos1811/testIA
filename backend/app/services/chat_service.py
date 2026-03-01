@@ -1,5 +1,6 @@
 import json
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib import error, request
@@ -101,22 +102,49 @@ def _generate_assistant_reply(history: list[dict[str, str]]) -> str:
         "temperature": 0.7,
     }
 
-    req = request.Request(
-        url="https://api.openai.com/v1/chat/completions",
-        method="POST",
-        headers={
-            "Authorization": f"Bearer {settings.openai_api_key}",
-            "Content-Type": "application/json",
-        },
-        data=json.dumps(payload).encode("utf-8"),
-    )
+    assistant_reply = _request_openai_reply(payload)
+    if assistant_reply:
+        return assistant_reply
 
-    try:
-        with request.urlopen(req, timeout=settings.openai_timeout_seconds) as response:
-            data = json.loads(response.read().decode("utf-8"))
-            return data["choices"][0]["message"]["content"].strip()
-    except (error.URLError, error.HTTPError, KeyError, IndexError, json.JSONDecodeError):
-        return "Te leo con atención. ¿Qué valoras más cuando conectas con alguien?"
+    return "Te leo con atención. ¿Qué valoras más cuando conectas con alguien?"
+
+
+def _request_openai_reply(payload: dict[str, object]) -> str | None:
+    max_retries = 3
+    backoff_seconds = 0.75
+
+    for attempt in range(max_retries):
+        req = request.Request(
+            url="https://api.openai.com/v1/chat/completions",
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {settings.openai_api_key}",
+                "Content-Type": "application/json",
+                "Connection": "close",
+            },
+            data=json.dumps(payload).encode("utf-8"),
+        )
+
+        try:
+            with request.urlopen(req, timeout=settings.openai_timeout_seconds) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                return data["choices"][0]["message"]["content"].strip()
+        except error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="ignore").lower()
+            is_retryable_code = exc.code in {429, 500, 502, 503, 504}
+            is_connection_pressure = "too many connections" in body
+
+            if attempt < max_retries - 1 and (is_retryable_code or is_connection_pressure):
+                time.sleep(backoff_seconds * (attempt + 1))
+                continue
+            return None
+        except (error.URLError, KeyError, IndexError, json.JSONDecodeError):
+            if attempt < max_retries - 1:
+                time.sleep(backoff_seconds * (attempt + 1))
+                continue
+            return None
+
+    return None
 
 
 def _get_or_create_profile(db: Session, user_id: UUID) -> PsychologicalProfile:
