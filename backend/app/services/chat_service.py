@@ -2,6 +2,7 @@ import json
 import re
 import time
 from dataclasses import dataclass
+from typing import Callable
 from datetime import datetime, timezone
 from urllib import error, request
 from uuid import UUID
@@ -84,11 +85,21 @@ def _get_recent_messages(db: Session, conversation_id: UUID, history_limit: int)
 
 
 def _generate_assistant_reply(history: list[dict[str, str]]) -> str:
-    if not settings.openai_api_key:
+    provider_name, request_fn = _llm_request_factory()
+    if request_fn is None:
         return "Gracias por compartirlo. Quiero entenderte mejor: ¿qué situación reciente te hizo sentir así?"
 
+    payload = _build_chat_payload(history, provider_name)
+    assistant_reply = request_fn(payload)
+    if assistant_reply:
+        return assistant_reply
+
+    return "Te leo con atención. ¿Qué valoras más cuando conectas con alguien?"
+
+
+def _build_chat_payload(history: list[dict[str, str]], provider: str) -> dict[str, object]:
     payload = {
-        "model": settings.openai_model,
+        "model": settings.openai_model if provider == "openai" else settings.mistral_model,
         "messages": [
             {
                 "role": "system",
@@ -101,12 +112,27 @@ def _generate_assistant_reply(history: list[dict[str, str]]) -> str:
         ],
         "temperature": 0.7,
     }
+    return payload
 
-    assistant_reply = _request_openai_reply(payload)
-    if assistant_reply:
-        return assistant_reply
 
-    return "Te leo con atención. ¿Qué valoras más cuando conectas con alguien?"
+def _llm_request_factory() -> tuple[str, Callable[[dict[str, object]], str | None] | None]:
+    provider = settings.llm_provider.lower().strip()
+
+    providers: dict[str, Callable[[dict[str, object]], str | None] | None] = {
+        "openai": _request_openai_reply if settings.openai_api_key else None,
+        "mistral": _request_mistral_reply if settings.mistral_api_key else None,
+    }
+
+    if provider in providers and providers[provider] is not None:
+        return provider, providers[provider]
+
+    if providers["openai"] is not None:
+        return "openai", providers["openai"]
+
+    if providers["mistral"] is not None:
+        return "mistral", providers["mistral"]
+
+    return provider, None
 
 
 def _request_openai_reply(payload: dict[str, object]) -> str | None:
@@ -127,6 +153,44 @@ def _request_openai_reply(payload: dict[str, object]) -> str | None:
 
         try:
             with request.urlopen(req, timeout=settings.openai_timeout_seconds) as response:
+                data = json.loads(response.read().decode("utf-8"))
+                return data["choices"][0]["message"]["content"].strip()
+        except error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="ignore").lower()
+            is_retryable_code = exc.code in {429, 500, 502, 503, 504}
+            is_connection_pressure = "too many connections" in body
+
+            if attempt < max_retries - 1 and (is_retryable_code or is_connection_pressure):
+                time.sleep(backoff_seconds * (attempt + 1))
+                continue
+            return None
+        except (error.URLError, KeyError, IndexError, json.JSONDecodeError):
+            if attempt < max_retries - 1:
+                time.sleep(backoff_seconds * (attempt + 1))
+                continue
+            return None
+
+    return None
+
+
+def _request_mistral_reply(payload: dict[str, object]) -> str | None:
+    max_retries = 3
+    backoff_seconds = 0.75
+
+    for attempt in range(max_retries):
+        req = request.Request(
+            url="https://api.mistral.ai/v1/chat/completions",
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {settings.mistral_api_key}",
+                "Content-Type": "application/json",
+                "Connection": "close",
+            },
+            data=json.dumps(payload).encode("utf-8"),
+        )
+
+        try:
+            with request.urlopen(req, timeout=settings.mistral_timeout_seconds) as response:
                 data = json.loads(response.read().decode("utf-8"))
                 return data["choices"][0]["message"]["content"].strip()
         except error.HTTPError as exc:
