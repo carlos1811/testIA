@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     openai_api_key: str | None = None
     openai_model: str = "gpt-4o-mini"
     openai_timeout_seconds: int = 30
+    mistral_api_key: str | None = None
+    mistral_model: str = "mistral-small-latest"
+    mistral_timeout_seconds: int = 30
+    llm_provider: str = "openai"
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
