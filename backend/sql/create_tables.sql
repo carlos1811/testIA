@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS psychological_profiles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+ALTER TABLE psychological_profiles ADD COLUMN perfil_json JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE psychological_profiles ADD COLUMN completeness_score INTEGER NOT NULL DEFAULT 0;
+
 -- Índices útiles para consultas futuras
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON psychological_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_profiles_jsonb ON psychological_profiles USING GIN (perfil_json);

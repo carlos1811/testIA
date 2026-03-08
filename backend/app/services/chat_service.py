@@ -40,16 +40,35 @@ def process_chat_message(
 
     history = _get_recent_messages(db, conversation.id, history_limit)
     assistant_reply = _generate_assistant_reply(history)
-    _save_message(db, conversation.id, "assistant", assistant_reply)
+
+    clean = assistant_reply.strip()
+    if clean.startswith("```"):
+        lines = clean.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        clean = "\n".join(lines).strip()
+
+    try:
+        data = json.loads(clean)
+        respuesta = str(data.get("respuesta", "")).strip()
+        resultado_raw = data.get("resultado", [])
+    except json.JSONDecodeError:
+        respuesta = assistant_reply
+
+    resultado_final  = " ".join(str(item) for item in resultado_raw)
+
+    _save_message(db, conversation.id, "assistant", resultado_final )
 
     profile = _get_or_create_profile(db, user_id)
-    profile_hint = _update_psychological_profile(profile, message_text)
+    profile_hint = _update_psychological_profile(profile, resultado_final)
 
     db.commit()
 
     return ChatResult(
         conversation_id=conversation.id,
-        reply=assistant_reply,
+        reply=respuesta,
         profile_hint=profile_hint,
         profile_completeness=profile.completeness_score,
     )
@@ -105,7 +124,20 @@ def _build_chat_payload(history: list[dict[str, str]], provider: str) -> dict[st
                 "role": "system",
                 "content": (
                     "Eres una IA empática que conversa en español para onboarding psicológico "
-                    "de una app de citas. Responde breve, cálida y con una pregunta abierta."
+                    "de una app de citas. " 
+                    "Responde con un fichero JSON que contenga que contenga dos campos: "
+                    "resultado y respuesta "
+                    "En resultado muestra un array con algun valor dentro de las caracteristicas mostradas de emociones, valores, vinculo y autoconocimiento "
+                    "Ejemplo resultado: [ansiedad, confianza, amor, terapia] "
+                    "Posibles valores para cada parametro: "
+                    "emociones: [siento, emocion, ansiedad, feliz, triste, miedo] "
+                    "valores: [valoro, respeto, confianza, lealtad, honestidad] "
+                    "vinculo: [pareja, relación, amor, conectar, compromiso] "
+                    "autoconocimiento: [aprendí, terapia, cambié, crecer, mejorar] "
+                    "En respuesta responde a lo que la persona te dice con una pregunta abierta que invite a compartir "
+                    "más sobre lo que la persona siente o valora, para ir creando un perfil psicológico. "
+                    " Los textos posteriores son mensajes del historial de la conversación, con el rol de user o "
+                    "assistant. Analízalos para identificar señales psicológicas y generar una respuesta empática y personalizada. "
                 ),
             },
             *history,
@@ -223,6 +255,7 @@ def _get_or_create_profile(db: Session, user_id: UUID) -> PsychologicalProfile:
 
 
 def _update_psychological_profile(profile: PsychologicalProfile, user_message: str) -> str:
+
     insights = profile.perfil_json or {}
     lower = user_message.lower()
 
