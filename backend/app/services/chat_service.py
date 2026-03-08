@@ -56,8 +56,10 @@ def process_chat_message(
         resultado_raw = data.get("resultado", [])
     except json.JSONDecodeError:
         respuesta = assistant_reply
+        resultado_raw = []
 
-    resultado_final  = " ".join(str(item) for item in resultado_raw)
+    resultado_items = _normalize_resultado_items(resultado_raw)
+    resultado_final = " ".join(resultado_items)
 
     _save_message(db, conversation.id, "assistant", resultado_final )
 
@@ -145,6 +147,28 @@ def _build_chat_payload(history: list[dict[str, str]], provider: str) -> dict[st
         "temperature": 0.7,
     }
     return payload
+
+
+def _normalize_resultado_items(resultado_raw: object) -> list[str]:
+    if isinstance(resultado_raw, list):
+        return [str(item).strip() for item in resultado_raw if str(item).strip()]
+
+    if isinstance(resultado_raw, str):
+        value = resultado_raw.strip()
+        if not value:
+            return []
+
+        if value.startswith("[") and value.endswith("]"):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                return [str(item).strip() for item in parsed if str(item).strip()]
+
+        return [part.strip() for part in re.split(r"[,;\s]+", value) if part.strip()]
+
+    return []
 
 
 def _llm_request_factory() -> tuple[str, Callable[[dict[str, object]], str | None] | None]:
