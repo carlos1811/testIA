@@ -45,7 +45,6 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> AuthRes
         user_id=str(user.id),
     )
 
-
 @router.post("/login", response_model=AuthResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> AuthResponse:
     user = db.query(User).filter(User.email == payload.email).first()
